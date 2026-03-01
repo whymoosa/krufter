@@ -1,49 +1,132 @@
 'use client'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useState } from 'react'
 
 const navItems = [
-  { href: '/',          label: 'Dashboard',  icon: '▦' },
-  { href: '/invoices',  label: 'Invoices',   icon: '◈' },
-  { href: '/finances',  label: 'Finances',   icon: '◉' },
-  { href: '/clients',   label: 'Clients',    icon: '◎' },
+  { href: '/', label: 'Dashboard', icon: '⊞' },
+  {
+    href: '/finances', label: 'Finances', icon: '◈',
+    children: [
+      { href: '/finances/income/new', label: 'Log Income' },
+      { href: '/finances/expenses/new', label: 'Log Expense' },
+    ]
+  },
+  { href: '/invoices', label: 'Invoices', icon: '⊠' },
+  { href: '/calculator', label: 'Calculator', icon: '⊹' },
+  { href: '/clients', label: 'Clients', icon: '⊙' },
 ]
 
 export default function Sidebar() {
   const pathname = usePathname()
+  const [expanded, setExpanded] = useState<string | null>(
+    pathname.startsWith('/finances') ? '/finances' : null
+  )
+
   return (
     <aside style={{
-      width: 220, background: '#0d1220',
-      borderRight: '1px solid #1e2a3a',
-      display: 'flex', flexDirection: 'column', flexShrink: 0,
+      width: 220,
+      background: '#0a0a0a',
+      borderRight: '1px solid #1a1a1a',
+      display: 'flex',
+      flexDirection: 'column',
+      flexShrink: 0,
     }}>
-      <div style={{ padding: '28px 24px 20px', borderBottom: '1px solid #1e2a3a' }}>
+      {/* Logo */}
+      <div style={{ padding: '28px 20px 24px' }}>
         <div style={{
-          fontSize: 22, fontWeight: 800,
-          background: 'linear-gradient(135deg, #22d3ee, #818cf8)',
-          WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-        }}>KRUFTER</div>
-        <div style={{ fontSize: 11, color: '#4b5563', marginTop: 2, letterSpacing: '0.08em', textTransform: 'uppercase' }}>Business Hub</div>
+          fontSize: 18,
+          fontWeight: 700,
+          letterSpacing: '-0.4px',
+          color: '#fff',
+        }}>Krufter</div>
+        <div style={{ fontSize: 11, color: '#3a3a3a', marginTop: 3, letterSpacing: '0.02em' }}>
+          business hub
+        </div>
       </div>
-      <nav style={{ padding: '12px', flex: 1 }}>
+
+      {/* Divider */}
+      <div style={{ height: 1, background: '#1a1a1a', margin: '0 20px 16px' }} />
+
+      {/* Nav */}
+      <nav style={{ padding: '0 10px', flex: 1 }}>
         {navItems.map((item) => {
-          const isActive = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href))
+          const isActive = pathname === item.href ||
+            (item.href !== '/' && pathname.startsWith(item.href))
+          const isExpanded = expanded === item.href
+
           return (
-            <Link key={item.href} href={item.href} style={{
-              display: 'flex', alignItems: 'center', gap: 10,
-              padding: '10px 14px', borderRadius: 9, marginBottom: 3,
-              textDecoration: 'none', fontSize: 14,
-              fontWeight: isActive ? 600 : 400,
-              color: isActive ? '#fff' : '#6b7280',
-              background: isActive ? 'rgba(129,140,248,0.15)' : 'transparent',
-              border: isActive ? '1px solid rgba(129,140,248,0.2)' : '1px solid transparent',
-            }}>
-              <span>{item.icon}</span>
-              {item.label}
-            </Link>
+            <div key={item.href}>
+              <Link
+                href={item.href}
+                onClick={() => item.children && setExpanded(isExpanded ? null : item.href)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 9,
+                  padding: '8px 12px',
+                  marginBottom: 2,
+                  borderRadius: 8,
+                  fontSize: 13.5,
+                  fontWeight: isActive ? 500 : 400,
+                  color: isActive ? '#fff' : '#5a5a5a',
+                  background: isActive ? '#1e1e22' : 'transparent',
+                  transition: 'all 0.15s',
+                  cursor: 'pointer',
+                }}
+              >
+                <span style={{
+                  fontSize: 13,
+                  color: isActive ? '#1488fc' : '#3a3a3a',
+                  width: 18,
+                  textAlign: 'center' as const,
+                }}>{item.icon}</span>
+                {item.label}
+                {item.children && (
+                  <span style={{
+                    marginLeft: 'auto',
+                    fontSize: 9,
+                    color: '#3a3a3a',
+                    transform: isExpanded ? 'rotate(90deg)' : 'rotate(0)',
+                    transition: 'transform 0.2s',
+                    display: 'inline-block',
+                  }}>▶</span>
+                )}
+              </Link>
+
+              {item.children && isExpanded && (
+                <div style={{ marginLeft: 18, marginBottom: 4 }}>
+                  <div style={{ borderLeft: '1px solid #1e1e22', paddingLeft: 12 }}>
+                    {item.children.map(child => {
+                      const childActive = pathname === child.href
+                      return (
+                        <Link key={child.href} href={child.href} style={{
+                          display: 'block',
+                          padding: '7px 10px',
+                          marginBottom: 1,
+                          borderRadius: 6,
+                          fontSize: 13,
+                          color: childActive ? '#fff' : '#4a4a4a',
+                          background: childActive ? '#1e1e22' : 'transparent',
+                          transition: 'all 0.15s',
+                        }}>
+                          {child.label}
+                        </Link>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
           )
         })}
       </nav>
+
+      {/* Bottom */}
+      <div style={{ padding: '16px 20px 24px', borderTop: '1px solid #1a1a1a' }}>
+        <div style={{ fontSize: 11, color: '#2a2a2a', marginBottom: 3 }}>signed in as</div>
+        <div style={{ fontSize: 12, color: '#3a3a3a' }}>you@krufter.com</div>
+      </div>
     </aside>
   )
 }
