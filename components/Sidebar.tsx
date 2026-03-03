@@ -9,8 +9,10 @@ const adminNav = [
   {
     href: '/finances', label: 'Finances', icon: '◈',
     children: [
-      { href: '/finances/income/new', label: 'Log Income' },
-      { href: '/finances/expenses/new', label: 'Log Expense' },
+      { href: '/finances/projects', label: 'Projects P&L' },
+      { href: '/finances/expenses', label: 'Expenses' },
+      { href: '/finances/platforms', label: 'Platforms' },
+      { href: '/finances/partners', label: 'Partners' },
     ]
   },
   { href: '/invoices', label: 'Invoices', icon: '⊠' },
