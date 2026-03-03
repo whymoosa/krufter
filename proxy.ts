@@ -4,12 +4,7 @@ import type { NextRequest } from 'next/server'
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl
 
-  // Always allow these through
-  if (
-    pathname === '/login' ||
-    pathname.startsWith('/_next') ||
-    pathname.startsWith('/favicon')
-  ) {
+  if (pathname === '/login') {
     return NextResponse.next()
   }
 
