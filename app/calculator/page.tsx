@@ -21,7 +21,7 @@ const inputStyle = {
   fontFamily: 'inherit',
 }
 
-const label = (t: string, sub?: string) => (
+const lbl = (t: string, sub?: string) => (
   <div style={{ marginBottom: 7 }}>
     <div style={{ fontSize: 11, color: '#4a4a4a', textTransform: 'uppercase' as const, letterSpacing: '0.07em' }}>{t}</div>
     {sub && <div style={{ fontSize: 11, color: '#3a3a3a', marginTop: 2 }}>{sub}</div>}
@@ -31,55 +31,51 @@ const label = (t: string, sub?: string) => (
 type Currency = 'USD' | 'PKR'
 
 export default function Calculator() {
-  // Settings
   const [currency, setCurrency] = useState<Currency>('USD')
   const [exchangeRate, setExchangeRate] = useState(280)
 
-  // Project inputs
   const [grossValue, setGrossValue] = useState(1000)
   const [upworkFee, setUpworkFee] = useState(15)
   const [partnerCut, setPartnerCut] = useState(14)
-  const [charity, setCharity] = useState(15)
   const [transferFee, setTransferFee] = useState(25)
   const [deliveryCost, setDeliveryCost] = useState(200)
 
-  // Monthly fixed costs (PKR)
   const [rent, setRent] = useState(48500)
   const [electricity, setElectricity] = useState(10000)
   const [cleaning, setCleaning] = useState(17000)
   const [food, setFood] = useState(15000)
   const [projectsPerMonth, setProjectsPerMonth] = useState(5)
 
-  // Monthly target
   const [monthlyTargetUSD, setMonthlyTargetUSD] = useState(1000)
 
   // ── CALCULATIONS ──────────────────────────────────────────
+  // Business P&L (View A) — no partner, no charity
+  const platform_fee = grossValue * (upworkFee / 100)
+  const after_platform = grossValue - platform_fee
+  const partner_deduction = after_platform * (partnerCut / 100)
+  const after_partner = after_platform - partner_deduction
+  const after_transfer = after_partner - transferFee
+  const business_net = after_transfer - deliveryCost
 
-  // Step by step deductions (all in USD)
-  const afterUpwork = grossValue - (grossValue * upworkFee / 100)
-  const afterPartner = afterUpwork - (afterUpwork * partnerCut / 100)
-  const afterCharity = afterPartner - (afterPartner * charity / 100)
-  const afterTransfer = afterCharity - transferFee
-  const afterDelivery = afterTransfer - deliveryCost
-
-  // Monthly fixed costs in USD
+  // Fixed cost allocation
   const totalFixedPKR = rent + electricity + cleaning + food
   const totalFixedUSD = totalFixedPKR / exchangeRate
   const fixedCostPerProject = totalFixedUSD / projectsPerMonth
+  const after_fixed = business_net - fixedCostPerProject
 
-  // True profit per project
-  const trueProfit = afterDelivery - fixedCostPerProject
+  // Distribution (View B) — charity only on profit
+  const charity = after_fixed > 0 ? after_fixed * 0.15 : 0
+  const trueProfit = after_fixed - charity
 
-  // How many projects needed for monthly target
-  const projectsNeeded = trueProfit > 0
-    ? Math.ceil(monthlyTargetUSD / trueProfit)
-    : null
+  const marginPct = grossValue > 0 ? ((trueProfit / grossValue) * 100).toFixed(1) : '0.0'
+  const structuralLoss = platform_fee + partner_deduction + transferFee
+  const structuralPct = grossValue > 0 ? ((structuralLoss / grossValue) * 100).toFixed(0) : '0'
 
-  // Display helpers
+  const projectsNeeded = trueProfit > 0 ? Math.ceil(monthlyTargetUSD / trueProfit) : null
+
   const fmt = (usd: number) => {
     if (currency === 'USD') return `$${usd.toLocaleString('en', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
-    const pkr = usd * exchangeRate
-    return `₨${pkr.toLocaleString('en', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
+    return `₨${(usd * exchangeRate).toLocaleString('en', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
   }
 
   const fmtPKR = (pkr: number) => {
@@ -87,61 +83,65 @@ export default function Calculator() {
     return `$${(pkr / exchangeRate).toLocaleString('en', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
   }
 
+  // Waterfall steps — charity appears AFTER fixed costs, only on profit
   const steps = [
     {
       label: 'Gross Project Value',
       value: grossValue,
       deduction: null,
-      color: '#fff',
+      deductionColor: '#fff',
       note: 'Starting point',
+      section: 'A',
     },
     {
       label: `Upwork Fee (${upworkFee}%)`,
-      value: afterUpwork,
-      deduction: grossValue - afterUpwork,
-      color: '#f87171',
+      value: after_platform,
+      deduction: platform_fee,
+      deductionColor: '#f87171',
       note: 'Platform commission',
+      section: 'A',
     },
     {
       label: `US Partner Cut (${partnerCut}%)`,
-      value: afterPartner,
-      deduction: afterUpwork - afterPartner,
-      color: '#f87171',
+      value: after_partner,
+      deduction: partner_deduction,
+      deductionColor: '#f87171',
       note: 'US access + payment enablement',
-    },
-    {
-      label: `Charity (${charity}%)`,
-      value: afterCharity,
-      deduction: afterPartner - afterCharity,
-      color: '#f87171',
-      note: 'Fixed principle',
+      section: 'A',
     },
     {
       label: 'Transfer Fee',
-      value: afterTransfer,
+      value: after_transfer,
       deduction: transferFee,
-      color: '#f87171',
+      deductionColor: '#f87171',
       note: 'Batched payout cost',
+      section: 'A',
     },
     {
       label: 'Delivery Costs',
-      value: afterDelivery,
+      value: business_net,
       deduction: deliveryCost,
-      color: '#f87171',
+      deductionColor: '#f87171',
       note: 'Writers, devs, QA, revisions',
+      section: 'A',
     },
     {
       label: 'Fixed Costs (per project share)',
-      value: afterDelivery - fixedCostPerProject,
+      value: after_fixed,
       deduction: fixedCostPerProject,
-      color: '#fbbf24',
+      deductionColor: '#fbbf24',
       note: `Office, electricity, cleaning, food ÷ ${projectsPerMonth} projects`,
+      section: 'A',
+    },
+    {
+      label: 'Charity (15% of profit)',
+      value: trueProfit,
+      deduction: charity,
+      deductionColor: after_fixed > 0 ? '#818cf8' : '#3a3a3a',
+      note: after_fixed > 0 ? '15% of net profit — applied only if profitable' : 'No charity — project not profitable',
+      section: 'B',
     },
   ]
-
-  const marginPct = ((trueProfit / grossValue) * 100).toFixed(1)
-  const structuralLoss = grossValue - afterTransfer
-  const structuralPct = ((structuralLoss / grossValue) * 100).toFixed(0)
 
   return (
     <div style={{ maxWidth: 920 }}>
@@ -157,7 +157,6 @@ export default function Calculator() {
           </p>
         </div>
 
-        {/* Currency toggle + exchange rate */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{ fontSize: 12, color: '#4a4a4a' }}>1 USD =</span>
@@ -170,8 +169,7 @@ export default function Calculator() {
             <span style={{ fontSize: 12, color: '#4a4a4a' }}>PKR</span>
           </div>
           <div style={{
-            display: 'flex',
-            background: '#1e1e22',
+            display: 'flex', background: '#1e1e22',
             border: '1px solid rgba(255,255,255,0.06)',
             borderRadius: 999, padding: 3,
           }}>
@@ -182,8 +180,7 @@ export default function Calculator() {
                 border: 'none', cursor: 'pointer',
                 fontSize: 13, fontWeight: 500,
                 color: currency === c ? '#fff' : '#5a5a5a',
-                fontFamily: 'inherit',
-                transition: 'all 0.15s',
+                fontFamily: 'inherit', transition: 'all 0.15s',
               }}>{c}</button>
             ))}
           </div>
@@ -195,64 +192,49 @@ export default function Calculator() {
         {/* LEFT — Inputs */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
 
-          {/* Project value */}
           <div style={card}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: '#fff', marginBottom: 16 }}>
-              Project Value
-            </div>
-            <div>
-              {label('Gross Project Value (USD)', 'Top-line before any deductions')}
-              <input style={inputStyle} type="number" value={grossValue}
-                onChange={e => setGrossValue(Number(e.target.value))} min={0} />
-            </div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: '#fff', marginBottom: 16 }}>Project Value</div>
+            {lbl('Gross Project Value (USD)', 'Top-line before any deductions')}
+            <input style={inputStyle} type="number" value={grossValue}
+              onChange={e => setGrossValue(Number(e.target.value))} min={0} />
           </div>
 
-          {/* Structural deductions */}
           <div style={card}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: '#fff', marginBottom: 16 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: '#fff', marginBottom: 4 }}>
               Structural Deductions
-              <span style={{ fontSize: 11, color: '#5a5a5a', fontWeight: 400, marginLeft: 8 }}>
-                non-negotiable
-              </span>
+            </div>
+            <div style={{ fontSize: 11, color: '#4a4a4a', marginBottom: 16 }}>
+              Non-negotiable costs before profit exists
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               <div>
-                {label('Upwork Fee (%)')}
+                {lbl('Upwork Fee (%)')}
                 <input style={inputStyle} type="number" value={upworkFee}
                   onChange={e => setUpworkFee(Number(e.target.value))} min={0} max={100} />
               </div>
               <div>
-                {label('US Partner Cut (%)', 'US access, IDs, payment enablement')}
+                {lbl('US Partner Cut (%)', 'US access, IDs, payment enablement')}
                 <input style={inputStyle} type="number" value={partnerCut}
                   onChange={e => setPartnerCut(Number(e.target.value))} min={0} max={100} />
               </div>
               <div>
-                {label('Charity (%)', 'Fixed principle, not negotiable')}
-                <input style={inputStyle} type="number" value={charity}
-                  onChange={e => setCharity(Number(e.target.value))} min={0} max={100} />
-              </div>
-              <div>
-                {label('Transfer Fee (USD)', 'Per payout, batched')}
+                {lbl('Transfer Fee (USD)', 'Per payout, batched')}
                 <input style={inputStyle} type="number" value={transferFee}
                   onChange={e => setTransferFee(Number(e.target.value))} min={0} />
               </div>
             </div>
           </div>
 
-          {/* Delivery costs */}
           <div style={card}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: '#fff', marginBottom: 16 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: '#fff', marginBottom: 4 }}>
               Delivery Costs (USD)
-              <span style={{ fontSize: 11, color: '#5a5a5a', fontWeight: 400, marginLeft: 8 }}>
-                per project
-              </span>
             </div>
-            {label('Writers, devs, QA, revisions, PM time')}
+            <div style={{ fontSize: 11, color: '#4a4a4a', marginBottom: 14 }}>Per project</div>
+            {lbl('Writers, devs, QA, revisions, PM time')}
             <input style={inputStyle} type="number" value={deliveryCost}
               onChange={e => setDeliveryCost(Number(e.target.value))} min={0} />
           </div>
 
-          {/* Monthly fixed costs */}
           <div style={card}>
             <div style={{ fontSize: 13, fontWeight: 600, color: '#fff', marginBottom: 16 }}>
               Monthly Fixed Costs (PKR)
@@ -265,16 +247,42 @@ export default function Calculator() {
                 { l: 'Food', v: food, set: setFood },
               ].map(item => (
                 <div key={item.l}>
-                  {label(item.l)}
+                  {lbl(item.l)}
                   <input style={inputStyle} type="number" value={item.v}
                     onChange={e => item.set(Number(e.target.value))} min={0} />
                 </div>
               ))}
               <div>
-                {label('Projects This Month', 'Used to split fixed costs per project')}
+                {lbl('Projects This Month', 'Splits fixed costs per project')}
                 <input style={inputStyle} type="number" value={projectsPerMonth}
                   onChange={e => setProjectsPerMonth(Number(e.target.value))} min={1} />
               </div>
+            </div>
+          </div>
+
+          {/* Charity notice */}
+          <div style={{
+            ...card,
+            background: 'rgba(129,140,248,0.04)',
+            border: '1px solid rgba(129,140,248,0.15)',
+          }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: '#818cf8', marginBottom: 8 }}>
+              Charity — 15% of Net Profit
+            </div>
+            <div style={{ fontSize: 12, color: '#5a5a5a', lineHeight: 1.6 }}>
+              Charity is calculated as <strong style={{ color: '#818cf8' }}>15% of net profit</strong> after
+              all costs including fixed costs. If the project is not profitable, charity = ₨0.
+              This is a fixed principle — not editable.
+            </div>
+            <div style={{ marginTop: 12, display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
+              <span style={{ color: '#4a4a4a' }}>Profit before charity</span>
+              <span style={{ color: '#fff', fontWeight: 600 }}>{fmt(after_fixed)}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginTop: 6 }}>
+              <span style={{ color: '#4a4a4a' }}>Charity amount</span>
+              <span style={{ color: after_fixed > 0 ? '#818cf8' : '#3a3a3a', fontWeight: 600 }}>
+                {fmt(charity)}
+              </span>
             </div>
           </div>
         </div>
@@ -282,49 +290,84 @@ export default function Calculator() {
         {/* RIGHT — Results */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
 
-          {/* Waterfall breakdown */}
+          {/* Waterfall */}
           <div style={card}>
             <div style={{ fontSize: 13, fontWeight: 600, color: '#fff', marginBottom: 20 }}>
               Profit Waterfall
             </div>
+
+            {/* View A label */}
+            <div style={{ fontSize: 10, color: '#3a3a3a', textTransform: 'uppercase' as const, letterSpacing: '0.08em', marginBottom: 8 }}>
+              View A — Business P&L
+            </div>
+
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               {steps.map((step, i) => {
                 const isFirst = i === 0
                 const isLast = i === steps.length - 1
-                const pct = ((step.value / grossValue) * 100).toFixed(0)
+                const isCharityStep = step.section === 'B' && i > 0
+                const pct = Math.max(0, (step.value / grossValue) * 100)
+
                 return (
                   <div key={step.label}>
+                    {/* View B divider before charity */}
+                    {isCharityStep && (
+                      <div style={{
+                        fontSize: 10, color: '#3a3a3a',
+                        textTransform: 'uppercase' as const,
+                        letterSpacing: '0.08em',
+                        margin: '10px 0 8px',
+                      }}>
+                        View B — Distribution
+                      </div>
+                    )}
                     <div style={{
                       display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                      padding: '10px 12px',
-                      background: isLast ? 'rgba(20,136,252,0.08)' : 'rgba(255,255,255,0.02)',
-                      borderRadius: 8,
-                      border: isLast ? '1px solid rgba(20,136,252,0.2)' : '1px solid transparent',
+                      padding: '10px 12px', borderRadius: 8,
+                      background: isLast
+                        ? 'rgba(20,136,252,0.08)'
+                        : isCharityStep
+                          ? 'rgba(129,140,248,0.04)'
+                          : 'rgba(255,255,255,0.02)',
+                      border: isLast
+                        ? '1px solid rgba(20,136,252,0.2)'
+                        : isCharityStep
+                          ? '1px solid rgba(129,140,248,0.1)'
+                          : '1px solid transparent',
                     }}>
                       <div>
-                        <div style={{ fontSize: 13, color: isLast ? '#fff' : '#8a8a8f', fontWeight: isFirst || isLast ? 600 : 400 }}>
+                        <div style={{
+                          fontSize: 13,
+                          color: isLast ? '#fff' : isCharityStep ? '#818cf8' : '#8a8a8f',
+                          fontWeight: isFirst || isLast ? 600 : 400,
+                        }}>
                           {step.label}
                         </div>
                         <div style={{ fontSize: 11, color: '#3a3a3a', marginTop: 2 }}>{step.note}</div>
                       </div>
                       <div style={{ textAlign: 'right' as const }}>
-                        <div style={{ fontSize: 14, fontWeight: 700, color: isLast ? '#1488fc' : '#fff' }}>
+                        <div style={{
+                          fontSize: 14, fontWeight: 700,
+                          color: isLast ? '#1488fc' : isCharityStep ? '#818cf8' : '#fff',
+                        }}>
                           {fmt(step.value)}
                         </div>
-                        {step.deduction !== null && (
-                          <div style={{ fontSize: 11, color: step.color, marginTop: 1 }}>
+                        {step.deduction !== null && step.deduction > 0 && (
+                          <div style={{ fontSize: 11, color: step.deductionColor, marginTop: 1 }}>
                             −{fmt(step.deduction)}
                           </div>
+                        )}
+                        {step.deduction !== null && step.deduction === 0 && isCharityStep && (
+                          <div style={{ fontSize: 11, color: '#3a3a3a', marginTop: 1 }}>no charity</div>
                         )}
                       </div>
                     </div>
 
-                    {/* Progress bar */}
                     <div style={{ height: 3, background: '#1a1a1a', borderRadius: 2, margin: '3px 0' }}>
                       <div style={{
                         height: '100%', borderRadius: 2,
-                        width: `${Math.max(0, Number(pct))}%`,
-                        background: isLast ? '#1488fc' : '#2a2a2a',
+                        width: `${Math.min(100, pct)}%`,
+                        background: isLast ? '#1488fc' : isCharityStep ? '#818cf8' : '#2a2a2a',
                         transition: 'width 0.3s',
                       }} />
                     </div>
@@ -336,10 +379,8 @@ export default function Calculator() {
             {/* Summary stats */}
             <div style={{
               display: 'grid', gridTemplateColumns: '1fr 1fr 1fr',
-              gap: 10, marginTop: 20,
-              padding: '16px',
-              background: '#141416',
-              borderRadius: 10,
+              gap: 10, marginTop: 20, padding: 16,
+              background: '#141416', borderRadius: 10,
               border: '1px solid rgba(255,255,255,0.04)',
             }}>
               <div style={{ textAlign: 'center' as const }}>
@@ -383,8 +424,7 @@ export default function Calculator() {
               ].map(item => (
                 <div key={item.label} style={{
                   display: 'flex', justifyContent: 'space-between',
-                  padding: '8px 0', borderBottom: '1px solid #1a1a1a',
-                  fontSize: 13,
+                  padding: '8px 0', borderBottom: '1px solid #1a1a1a', fontSize: 13,
                 }}>
                   <span style={{ color: '#8a8a8f' }}>{item.label}</span>
                   <span style={{ color: '#fff' }}>{fmtPKR(item.pkr)}</span>
@@ -394,14 +434,18 @@ export default function Calculator() {
                 <span style={{ color: '#5a5a5a' }}>Total / month</span>
                 <span style={{ color: '#fff', fontWeight: 600 }}>{fmtPKR(totalFixedPKR)}</span>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', fontSize: 13, background: 'rgba(255,255,255,0.02)', borderRadius: 8 }}>
+              <div style={{
+                display: 'flex', justifyContent: 'space-between',
+                padding: '8px 12px', fontSize: 13,
+                background: 'rgba(255,255,255,0.02)', borderRadius: 8,
+              }}>
                 <span style={{ color: '#5a5a5a' }}>Per project ({projectsPerMonth} projects)</span>
                 <span style={{ color: '#fbbf24', fontWeight: 600 }}>{fmt(fixedCostPerProject)}</span>
               </div>
             </div>
           </div>
 
-          {/* Monthly target calculator */}
+          {/* Monthly target */}
           <div style={{
             ...card,
             border: '1px solid rgba(20,136,252,0.2)',
@@ -410,9 +454,8 @@ export default function Calculator() {
             <div style={{ fontSize: 13, fontWeight: 600, color: '#fff', marginBottom: 16 }}>
               Monthly Target Calculator
             </div>
-
             <div style={{ marginBottom: 16 }}>
-              {label('I want to profit this much per month (USD)')}
+              {lbl('I want to profit this much per month (USD)')}
               <input style={inputStyle} type="number" value={monthlyTargetUSD}
                 onChange={e => setMonthlyTargetUSD(Number(e.target.value))} min={0} />
               <div style={{ fontSize: 11, color: '#4a4a4a', marginTop: 6 }}>
@@ -422,16 +465,16 @@ export default function Calculator() {
 
             {trueProfit <= 0 ? (
               <div style={{
-                padding: '14px', borderRadius: 10,
+                padding: 14, borderRadius: 10,
                 background: 'rgba(248,113,113,0.08)',
                 border: '1px solid rgba(248,113,113,0.2)',
                 fontSize: 13, color: '#f87171',
               }}>
-                ⚠️ This project structure is currently losing money. Reduce delivery costs or increase project value.
+                ⚠️ This project structure is losing money. Reduce delivery costs or increase project value.
               </div>
             ) : (
               <div style={{
-                padding: '16px', borderRadius: 10,
+                padding: 16, borderRadius: 10,
                 background: 'rgba(20,136,252,0.08)',
                 border: '1px solid rgba(20,136,252,0.2)',
                 textAlign: 'center' as const,
@@ -451,7 +494,6 @@ export default function Calculator() {
               </div>
             )}
 
-            {/* Scaling insight */}
             {trueProfit > 0 && projectsNeeded && (
               <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 6 }}>
                 {[
@@ -462,13 +504,12 @@ export default function Calculator() {
                 ].map(row => (
                   <div key={row.label} style={{
                     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                    padding: '8px 12px', borderRadius: 8,
+                    padding: '8px 12px', borderRadius: 8, fontSize: 13,
                     background: row.projects === projectsNeeded ? 'rgba(20,136,252,0.1)' : 'rgba(255,255,255,0.02)',
-                    fontSize: 13,
                   }}>
                     <span style={{ color: '#5a5a5a' }}>{row.projects} projects/month</span>
                     <span style={{ color: row.projects === projectsNeeded ? '#1488fc' : '#8a8a8f', fontWeight: 600 }}>
-                      {fmt(row.projects * trueProfit)} profit · {row.label}
+                      {fmt(row.projects * trueProfit)} · {row.label}
                     </span>
                   </div>
                 ))}
@@ -479,20 +520,15 @@ export default function Calculator() {
       </div>
 
       {/* Bottom insight */}
-      <div style={{
-        ...card,
-        background: '#141416',
-        marginTop: 2,
-      }}>
+      <div style={{ ...card, background: '#141416', marginTop: 2 }}>
         <div style={{ fontSize: 12, color: '#3a3a3a', lineHeight: 1.7 }}>
           <span style={{ color: '#5a5a5a', fontWeight: 500 }}>Key insight: </span>
-          On a {fmt(grossValue)} project, {structuralPct}% ({fmt(structuralLoss)}) is lost to platform fees, partner cuts, charity, and transfer costs before work even starts.
-          This is structural — not inefficiency. Margins expand when volume increases and fixed costs stay flat.
-          At {projectsPerMonth} projects/month, your fixed cost burden is {fmt(fixedCostPerProject)}/project.
-          Double the volume to {projectsPerMonth * 2} projects and that drops to {fmt(fixedCostPerProject / 2)}/project.
+          On a {fmt(grossValue)} project, {structuralPct}% ({fmt(structuralLoss)}) is lost to platform fees, partner cuts, and transfer costs before work starts.
+          Charity ({fmt(charity)}) is taken from profit — not revenue — so unprofitable projects have zero charity obligation.
+          At {projectsPerMonth} projects/month, fixed cost burden is {fmt(fixedCostPerProject)}/project.
+          Double to {projectsPerMonth * 2} projects and that drops to {fmt(fixedCostPerProject / 2)}/project.
         </div>
       </div>
-
     </div>
   )
 }

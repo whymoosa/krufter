@@ -4,16 +4,29 @@ import { notFound } from 'next/navigation'
 
 export default async function FinancialProjectDetail({ params }: { params: { id: string } }) {
   const [{ data: p }, { data: expenses }, { data: settingsRows }] = await Promise.all([
-    supabase.from('financial_projects').select('*, platforms(*), partners(*), service_types(*)').eq('id', params.id).single(),
-    supabase.from('classified_expenses').select('*').eq('category', 'fixed').eq('is_recurring', true).is('project_id', null),
+    supabase
+      .from('financial_projects')
+      .select('*, platforms(*), partners(*), service_types(*), pm_projects(id, name)')
+      .eq('id', params.id)
+      .single(),
+    supabase
+      .from('classified_expenses')
+      .select('*')
+      .eq('category', 'fixed')
+      .eq('is_recurring', true)
+      .is('project_id', null),
     supabase.from('settings').select('*'),
   ])
 
   if (!p) return notFound()
 
+  // Supabase returns pm_projects as array from the relation
+  const pmProjects = (p as any).pm_projects
+  const pmProject = Array.isArray(pmProjects) ? pmProjects[0] : pmProjects ?? null
+
   const usdToPkr = Number(settingsRows?.find((s: any) => s.key === 'usd_to_pkr')?.value ?? 280)
 
-  // Fixed cost allocation for this month
+  // Fixed cost allocation
   const { data: monthProjects } = await supabase
     .from('financial_projects')
     .select('id, gross_value')
@@ -75,12 +88,13 @@ export default async function FinancialProjectDetail({ params }: { params: { id:
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-        {/* View A */}
+
+        {/* View A — Business P&L */}
         <div style={{
           background: '#1e1e22', border: '1px solid rgba(255,255,255,0.06)',
           borderRadius: 12, padding: 24, boxShadow: '0 2px 20px rgba(0,0,0,0.3)',
         }}>
-          <div style={{ fontSize: 11, color: '#4a4a4a', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 4 }}>View A</div>
+          <div style={{ fontSize: 11, color: '#4a4a4a', textTransform: 'uppercase' as const, letterSpacing: '0.07em', marginBottom: 4 }}>View A</div>
           <div style={{ fontSize: 13, fontWeight: 600, color: '#fff', marginBottom: 20 }}>Business P&L</div>
 
           {viewASteps.map((step, i) => {
@@ -95,24 +109,34 @@ export default async function FinancialProjectDetail({ params }: { params: { id:
                   border: isLast ? '1px solid rgba(20,136,252,0.2)' : '1px solid transparent',
                 }}>
                   <div>
-                    <div style={{ fontSize: 12, color: isLast ? '#fff' : '#8a8a8f', fontWeight: isLast ? 600 : 400 }}>{step.label}</div>
+                    <div style={{ fontSize: 12, color: isLast ? '#fff' : '#8a8a8f', fontWeight: isLast ? 600 : 400 }}>
+                      {step.label}
+                    </div>
                     {step.deduction !== null && step.deduction > 0 && (
-                      <div style={{ fontSize: 11, color: '#f87171', marginTop: 1 }}>−${Number(step.deduction).toFixed(0)}</div>
+                      <div style={{ fontSize: 11, color: '#f87171', marginTop: 1 }}>
+                        −${Number(step.deduction).toFixed(0)}
+                      </div>
                     )}
                   </div>
                   <div style={{ textAlign: 'right' as const }}>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: isLast ? '#1488fc' : '#fff' }}>${Number(step.value).toFixed(0)}</div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: isLast ? '#1488fc' : '#fff' }}>
+                      ${Number(step.value).toFixed(0)}
+                    </div>
                     <div style={{ fontSize: 10, color: '#3a3a3a' }}>{pct}%</div>
                   </div>
                 </div>
                 <div style={{ height: 2, background: '#1a1a1a', borderRadius: 2, margin: '3px 0' }}>
-                  <div style={{ height: '100%', borderRadius: 2, width: `${Math.max(0, Number(pct))}%`, background: isLast ? '#1488fc' : '#2a2a2a' }} />
+                  <div style={{
+                    height: '100%', borderRadius: 2,
+                    width: `${Math.max(0, Number(pct))}%`,
+                    background: isLast ? '#1488fc' : '#2a2a2a',
+                  }} />
                 </div>
               </div>
             )
           })}
 
-          {/* Allocated fixed costs (PKR, read-only) */}
+          {/* Allocated fixed costs */}
           <div style={{
             marginTop: 12, padding: '10px 12px', borderRadius: 8,
             background: 'rgba(255,255,255,0.02)', border: '1px solid #1a1a1a',
@@ -130,16 +154,17 @@ export default async function FinancialProjectDetail({ params }: { params: { id:
           </div>
         </div>
 
-        {/* View B */}
+        {/* View B — Distribution + Details */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+
           <div style={{
             background: '#1e1e22', border: '1px solid rgba(255,255,255,0.06)',
             borderRadius: 12, padding: 24, boxShadow: '0 2px 20px rgba(0,0,0,0.3)',
           }}>
-            <div style={{ fontSize: 11, color: '#4a4a4a', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 4 }}>View B</div>
+            <div style={{ fontSize: 11, color: '#4a4a4a', textTransform: 'uppercase' as const, letterSpacing: '0.07em', marginBottom: 4 }}>View B</div>
             <div style={{ fontSize: 13, fontWeight: 600, color: '#fff', marginBottom: 20 }}>Distribution</div>
 
-            {viewBSteps.map((step, i) => (
+            {viewBSteps.map((step) => (
               <div key={step.label} style={{ marginBottom: 8 }}>
                 <div style={{
                   display: 'flex', justifyContent: 'space-between', alignItems: 'center',
@@ -148,15 +173,18 @@ export default async function FinancialProjectDetail({ params }: { params: { id:
                   <div>
                     <div style={{ fontSize: 12, color: '#8a8a8f' }}>{step.label}</div>
                     {step.deduction !== null && step.deduction > 0 && (
-                      <div style={{ fontSize: 11, color: '#f87171', marginTop: 1 }}>−${Number(step.deduction).toFixed(0)}</div>
+                      <div style={{ fontSize: 11, color: '#f87171', marginTop: 1 }}>
+                        −${Number(step.deduction).toFixed(0)}
+                      </div>
                     )}
                   </div>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: '#fff' }}>${Number(step.value).toFixed(0)}</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: '#fff' }}>
+                    ${Number(step.value).toFixed(0)}
+                  </div>
                 </div>
               </div>
             ))}
 
-            {/* Final retained */}
             <div style={{
               marginTop: 8, padding: '14px 12px', borderRadius: 8,
               background: final_profit > 0 ? 'rgba(20,136,252,0.08)' : 'rgba(248,113,113,0.08)',
@@ -164,7 +192,7 @@ export default async function FinancialProjectDetail({ params }: { params: { id:
               display: 'flex', justifyContent: 'space-between', alignItems: 'center',
             }}>
               <div style={{ fontSize: 13, fontWeight: 600, color: '#fff' }}>Final Retained Profit</div>
-              <div style={{ fontSize: 22, fontWeight: 800, color: final_profit > 0 ? '#1488fc' : '#f87171', letterSpacing: '-0.5px' }}>
+              <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.5px', color: final_profit > 0 ? '#1488fc' : '#f87171' }}>
                 ${final_profit.toFixed(0)}
               </div>
             </div>
@@ -178,6 +206,8 @@ export default async function FinancialProjectDetail({ params }: { params: { id:
             {[
               { label: 'Status', value: p.status },
               { label: 'Gross Value', value: `$${Number(p.gross_value).toLocaleString()}` },
+              { label: 'Delivery Cost', value: `$${delivery.toLocaleString()}` },
+              { label: 'Transfer Fee', value: `$${transfer.toLocaleString()}` },
               { label: 'Platform', value: p.platforms?.name ?? '—' },
               { label: 'Partner', value: p.partners?.name ?? '—' },
               { label: 'Service', value: p.service_types?.name ?? '—' },
@@ -188,10 +218,44 @@ export default async function FinancialProjectDetail({ params }: { params: { id:
                 padding: '8px 0', borderBottom: '1px solid #1a1a1a', fontSize: 13,
               }}>
                 <span style={{ color: '#5a5a5a' }}>{row.label}</span>
-                <span style={{ color: '#e8e8e8', textTransform: 'capitalize' }}>{row.value}</span>
+                <span style={{ color: '#e8e8e8', textTransform: 'capitalize' as const }}>{row.value}</span>
               </div>
             ))}
           </div>
+
+          {/* Linked PM Project */}
+          {pmProject ? (
+            <Link href={`/projects/${pmProject.id}`} style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              background: '#1e1e22', border: '1px solid rgba(20,136,252,0.15)',
+              borderRadius: 12, padding: '16px 20px', textDecoration: 'none',
+              boxShadow: '0 2px 20px rgba(0,0,0,0.3)',
+            }}>
+              <div>
+                <div style={{ fontSize: 11, color: '#4a4a4a', textTransform: 'uppercase' as const, letterSpacing: '0.07em', marginBottom: 4 }}>
+                  Linked PM Project
+                </div>
+                <div style={{ fontSize: 14, fontWeight: 600, color: '#fff' }}>{pmProject.name}</div>
+              </div>
+              <span style={{ fontSize: 13, color: '#1488fc' }}>View milestones →</span>
+            </Link>
+          ) : (
+            <div style={{
+              background: '#1e1e22', border: '1px solid rgba(255,255,255,0.04)',
+              borderRadius: 12, padding: '14px 20px',
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            }}>
+              <div>
+                <div style={{ fontSize: 11, color: '#3a3a3a', textTransform: 'uppercase' as const, letterSpacing: '0.07em', marginBottom: 4 }}>
+                  Linked PM Project
+                </div>
+                <div style={{ fontSize: 13, color: '#4a4a4a' }}>No project linked</div>
+              </div>
+              <Link href="/projects/new" style={{ fontSize: 12, color: '#4a4a4a' }}>
+                Create one →
+              </Link>
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -16,17 +16,29 @@ const adminNav = [
     ]
   },
   { href: '/invoices', label: 'Invoices', icon: '⊠' },
-  { href: '/projects', label: 'Projects', icon: '◫' },
+  {
+    href: '/projects', label: 'Work', icon: '◫',
+    children: [
+      { href: '/projects/clients', label: 'Clients' },
+      { href: '/projects/risk', label: 'Risk View' },
+      { href: '/projects/people', label: 'People' },
+    ]
+  },
   { href: '/calculator', label: 'Calculator', icon: '⊹' },
   { href: '/activity', label: 'Activity', icon: '◉' },
   { href: '/admin/team', label: 'Team', icon: '⊙' },
 ]
 
 const managerNav = [
-  { href: '/', label: 'Dashboard', icon: '⊞' },
-  { href: '/projects', label: 'Projects', icon: '◫' },
+  {
+    href: '/projects', label: 'Work', icon: '◫',
+    children: [
+      { href: '/projects/clients', label: 'Clients' },
+      { href: '/projects/risk', label: 'Risk View' },
+      { href: '/projects/people', label: 'People' },
+    ]
+  },
   { href: '/my-tasks', label: 'My Tasks', icon: '✓' },
-  { href: '/admin/team', label: 'Team', icon: '⊙' },
 ]
 
 const memberNav = [
