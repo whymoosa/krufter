@@ -1,6 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import { notFound } from 'next/navigation'
-import MilestonesView from './milestoneview'
+import MilestonesView from './MilestonesView'
 
 export default async function ProjectPage({ params }: { params: { id: string } }) {
   const [{ data: project }, { data: milestones }, { data: profiles }] = await Promise.all([
